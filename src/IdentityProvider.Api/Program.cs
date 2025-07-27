@@ -1,8 +1,13 @@
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 using MinimalEndpoints.Extensions;
+using IdentityProvider.Configuration.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Identity Provider settings
+builder.Services.AddIdentityProviderConfiguration(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddApiVersioning(options =>
 {
