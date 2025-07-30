@@ -8,11 +8,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Endpoints\Admin\" />
-    <Folder Include="Endpoints\Auth\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\..\IdentityProvider.Configuration\IdentityProvider.Configuration.csproj" />
   </ItemGroup>
 
