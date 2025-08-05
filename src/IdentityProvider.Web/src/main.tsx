@@ -8,8 +8,8 @@ import { LoginFormData } from './types/auth';
 
 // Main Login Component
 const LoginApp: React.FC = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('user@test.com');
+    const [password, setPassword] = useState('user@test.com');
     const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -30,13 +30,9 @@ const LoginApp: React.FC = () => {
             const response = await AuthService.login(loginData);
 
             if (response.success) {
-                // Store token if provided
-                if (response.token) {
-                    AuthService.setToken(response.token);
-                }
-
-                // Redirect or show success message
-                window.location.href = '/dashboard';
+                // AuthService automatically navigates to dashboard on successful login
+                // No need for manual redirect here since we're focusing on login step
+                console.log('Login successful! Redirecting to dashboard...');
             } else {
                 setError(response.message || 'Login failed. Please check your credentials.');
                 setShowError(true);

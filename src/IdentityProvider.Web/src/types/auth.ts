@@ -9,6 +9,7 @@ export interface LoginResponse {
     token?: string;
     message?: string;
     user?: UserInfo;
+    redirectUrl?: string;
 }
 
 export interface UserInfo {

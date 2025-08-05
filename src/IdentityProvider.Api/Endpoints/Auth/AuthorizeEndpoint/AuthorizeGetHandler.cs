@@ -1,12 +1,16 @@
-﻿using IdentityProvider.Configuration.Models;
-using Microsoft.AspNetCore.Mvc;
+﻿using IdentityProvider.Api.Models;
+using IdentityProvider.Configuration.Models;
 using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
+using System.Security.Cryptography;
 
 namespace IdentityProvider.Api.Endpoints.Auth.AuthorizeEndpoint;
 
 internal class AuthorizeGetHandler : IEndpoint
 {
+    // Simple in-memory store for authorization codes (replace with proper storage in production)
+    private static readonly Dictionary<string, AuthorizationCode> _authorizationCodes = [];
+
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet("connect/authorize", Handle);
@@ -17,9 +21,8 @@ internal class AuthorizeGetHandler : IEndpoint
         IOptionsMonitor<OAuthClients> oauthClientsMonitor,
         HttpContext httpContext)
     {
-        // Validate the authorization request
+        // Use the simplified validator
         var validationResult = AuthorizeRequestValidator.Validate(request);
-
         if (!validationResult.IsValid)
         {
             return Task.FromResult(Results.BadRequest(new
@@ -32,119 +35,114 @@ internal class AuthorizeGetHandler : IEndpoint
 
         // Get OAuth client configuration
         var clients = oauthClientsMonitor.CurrentValue;
-
         if (!clients.TryGetValue(request.ClientId, out var client))
         {
             return Task.FromResult(Results.BadRequest(new
             {
                 error = "invalid_client",
-                error_description = "The client identifier provided is invalid",
+                error_description = "Invalid client_id",
                 state = request.State
             }));
         }
 
-        // Validate redirect URI
+        // Use client's redirect URI if not provided
+        var redirectUri = request.RedirectUri ?? client.RedirectUri;
+
+        // Simple redirect URI validation
         if (!string.IsNullOrEmpty(request.RedirectUri) &&
             !string.Equals(request.RedirectUri, client.RedirectUri, StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(Results.BadRequest(new
             {
                 error = "invalid_request",
-                error_description = "The redirect_uri provided does not match the registered redirect_uri",
+                error_description = "Invalid redirect_uri",
                 state = request.State
             }));
         }
 
-        // Validate PKCE requirements
-        if (client.RequirePkce && !request.UsesPkce())
-        {
-            var redirectUri = request.RedirectUri ?? client.RedirectUri;
-            return Task.FromResult(Results.Redirect($"{redirectUri}?error=invalid_request&error_description=PKCE+required&state={request.State}"));
-        }
-
-        // Validate requested scopes
-        var requestedScopes = request.GetScopes();
-        var unauthorizedScopes = requestedScopes.Except(client.Scopes).ToArray();
-
-        if (unauthorizedScopes.Length > 0)
-        {
-            var redirectUri = request.RedirectUri ?? client.RedirectUri;
-            var errorDescription = $"Requested+scopes+are+not+allowed:+{string.Join("+", unauthorizedScopes)}";
-            return Task.FromResult(Results.Redirect($"{redirectUri}?error=invalid_scope&error_description={errorDescription}&state={request.State}"));
-        }
-
-        // Check if the user is authenticated
+        // Check if user is authenticated
         if (!httpContext.User.Identity?.IsAuthenticated ?? true)
         {
-            // Check prompt parameter
-            var prompts = request.GetPrompts();
-            if (prompts.Contains("none", StringComparer.OrdinalIgnoreCase))
-            {
-                // If prompt=none and user not authenticated, return error
-                var redirectUri = request.RedirectUri ?? client.RedirectUri;
-                return Task.FromResult(Results.Redirect(
-                    $"{redirectUri}?error=login_required&error_description=User+is+not+authenticated&state={request.State}"));
-            }
-
-            // Build login URL with returnUrl pointing back to this authorize endpoint
-            var returnUrl = $"/connect/authorize?client_id={Uri.EscapeDataString(request.ClientId)}&response_type={Uri.EscapeDataString(request.ResponseType)}";
+            // Build simple login URL
+            var returnUrl = $"/connect/authorize?client_id={Uri.EscapeDataString(request.ClientId)}&response_type=code";
             if (!string.IsNullOrEmpty(request.RedirectUri))
                 returnUrl += $"&redirect_uri={Uri.EscapeDataString(request.RedirectUri)}";
-            if (!string.IsNullOrEmpty(request.Scope))
-                returnUrl += $"&scope={Uri.EscapeDataString(request.Scope)}";
             if (!string.IsNullOrEmpty(request.State))
                 returnUrl += $"&state={Uri.EscapeDataString(request.State)}";
-            if (!string.IsNullOrEmpty(request.Nonce))
-                returnUrl += $"&nonce={Uri.EscapeDataString(request.Nonce)}";
-            if (!string.IsNullOrEmpty(request.CodeChallenge))
-            {
-                returnUrl += $"&code_challenge={Uri.EscapeDataString(request.CodeChallenge)}";
-                if (!string.IsNullOrEmpty(request.CodeChallengeMethod))
-                    returnUrl += $"&code_challenge_method={Uri.EscapeDataString(request.CodeChallengeMethod)}";
-            }
+            if (!string.IsNullOrEmpty(request.Scope))
+                returnUrl += $"&scope={Uri.EscapeDataString(request.Scope)}";
 
-            // Redirect to login page
             return Task.FromResult(Results.Redirect($"/account/login?returnUrl={Uri.EscapeDataString(returnUrl)}"));
         }
 
-        // At this point, the user is authenticated
-        // Handle the prompt parameter if specified
-        var promptValues = request.GetPrompts();
-        
-        // Handle "login" prompt - force re-authentication
-        if (promptValues.Contains("login", StringComparer.OrdinalIgnoreCase))
+        // User is authenticated - generate authorization code
+        var authorizationCode = GenerateAuthorizationCode();
+        var codeData = new AuthorizationCode
         {
-            // In a real implementation, we would check authentication time and force re-auth if needed
-            // For demo purposes, we'll just continue
-        }
-        
-        // Handle "select_account" prompt - allow user to select a different account
-        if (promptValues.Contains("select_account", StringComparer.OrdinalIgnoreCase))
+            ClientId = request.ClientId,
+            UserId = httpContext?.User?.Identity?.Name ?? "unknown",
+            RedirectUri = redirectUri,
+            Scope = request.Scope ?? "openid profile",
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10) // 10 minute expiration
+        };
+
+        // Store the code (in production, use proper storage)
+        _authorizationCodes[authorizationCode] = codeData;
+
+        // Clean up expired codes
+        CleanupExpiredCodes();
+
+        // Build redirect URL with authorization code
+        var separator = redirectUri.Contains('?') ? "&" : "?";
+        var responseUrl = $"{redirectUri}{separator}code={Uri.EscapeDataString(authorizationCode)}";
+
+        if (!string.IsNullOrEmpty(request.State))
         {
-            // For demo purposes, we'll just continue
-            // In a real implementation, we would redirect to an account selection page
-        }
-        
-        // Handle "consent" prompt - show consent screen
-        if (promptValues.Contains("consent", StringComparer.OrdinalIgnoreCase))
-        {
-            // In a real implementation, we would check if consent was already given and redirect to consent page if not
-            // For demo purposes, we'll just continue
+            responseUrl += $"&state={Uri.EscapeDataString(request.State)}";
         }
 
-        // TODO: Implement the rest of the authorization flow:
-        // 1. Generate authorization code for code flow
-        // 2. Handle different response types (code, id_token, token, hybrid)
-        // 3. Support different response modes (query, fragment, form_post)
+        return Task.FromResult(Results.Redirect(responseUrl));
+    }
 
-        // For now, return a message indicating authentication success
-        return Task.FromResult(Results.Ok(new
+    private static string GenerateAuthorizationCode()
+    {
+        // Generate a secure random authorization code
+        var bytes = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(bytes);
+        return Convert.ToBase64String(bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=');
+    }
+
+    private static void CleanupExpiredCodes()
+    {
+        var now = DateTime.UtcNow;
+        var expiredCodes = _authorizationCodes
+            .Where(kvp => kvp.Value.ExpiresAt < now)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var code in expiredCodes)
         {
-            message = "User is authenticated!",
-            username = httpContext.User.Identity.Name,
-            flow = request.IsAuthorizationCodeFlow() ? "authorization_code" : 
-                   request.IsImplicitFlow() ? "implicit" : "hybrid",
-            // Add more information as needed
-        }));
+            _authorizationCodes.Remove(code);
+        }
+    }
+
+    // Make authorization codes accessible for token exchange
+    public static bool TryGetAndRemoveCode(string code, out AuthorizationCode? codeData)
+    {
+        if (_authorizationCodes.TryGetValue(code, out codeData))
+        {
+            _authorizationCodes.Remove(code);
+            return !IsExpired(codeData);
+        }
+
+        codeData = null;
+        return false;
+    }
+
+    private static bool IsExpired(AuthorizationCode codeData)
+    {
+        return DateTime.UtcNow > codeData.ExpiresAt;
     }
 }

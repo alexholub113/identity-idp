@@ -6,6 +6,4 @@ public class OAuthClient
     public required string RedirectUri { get; init; }
 
     public required string[] Scopes { get; init; }
-
-    public bool RequirePkce { get; init; }
 }

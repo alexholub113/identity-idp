@@ -16,6 +16,10 @@
     <!-- Minimal Endpoints -->
     <PackageVersion Include="AlexHolub.MinimalEndpoints" Version="1.0.0" />
     
+    <!-- JWT and Security -->
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
+    
     <!-- Microsoft Extensions - Updated to latest versions -->
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.7" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.7" />

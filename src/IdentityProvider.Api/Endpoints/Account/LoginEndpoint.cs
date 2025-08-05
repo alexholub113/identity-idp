@@ -1,13 +1,15 @@
-using System.Security.Claims;
+using IdentityProvider.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
+using System.Security.Claims;
 
 namespace IdentityProvider.Api.Endpoints.Account;
 
 public record LoginRequest(
-    string Username,
+    string Email,
     string Password,
     string? ReturnUrl,
     bool RememberMe = false
@@ -15,8 +17,8 @@ public record LoginRequest(
 
 public record LoginResponse(
     bool Success,
-    string? RedirectUrl,
-    string? ErrorMessage
+    string? Message,
+    string? RedirectUrl = null
 );
 
 public class LoginEndpoint : IEndpoint
@@ -24,8 +26,8 @@ public class LoginEndpoint : IEndpoint
     // Simple demo user store - in a real app, use proper identity storage
     private static readonly Dictionary<string, string> _users = new(StringComparer.OrdinalIgnoreCase)
     {
-        { "admin", "password123" },
-        { "user", "password123" }
+        { "admin@test.com", "password123" },
+        { "user@test.com", "user@test.com" }
     };
 
     public void MapEndpoint(IEndpointRouteBuilder app)
@@ -34,76 +36,120 @@ public class LoginEndpoint : IEndpoint
         app.MapPost("account/login", HandlePost);
     }
 
-    private static IResult HandleGet([FromQuery] string? returnUrl)
+    private static IResult HandleGet(
+        [FromQuery] string? returnUrl,
+        [FromServices] IOptions<IdentityProviderConfiguration> config)
     {
-        // Return a simple login form HTML for testing
-        var html = @"
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset=""utf-8"" />
-                <title>Login</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; }
-                    .form-container { max-width: 400px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
-                    .form-group { margin-bottom: 15px; }
-                    label { display: block; margin-bottom: 5px; }
-                    input[type=""text""], input[type=""password""] { width: 100%; padding: 8px; box-sizing: border-box; }
-                    button { padding: 10px 15px; background-color: #0066cc; color: white; border: none; cursor: pointer; }
-                </style>
-            </head>
-            <body>
-                <div class=""form-container"">
-                    <h2>Login</h2>
-                    <form action=""/account/login"" method=""post"">
-                        <div class=""form-group"">
-                            <label for=""username"">Username:</label>
-                            <input type=""text"" id=""username"" name=""username"" required />
-                        </div>
-                        <div class=""form-group"">
-                            <label for=""password"">Password:</label>
-                            <input type=""password"" id=""password"" name=""password"" required />
-                        </div>
-                        <div class=""form-group"">
-                            <label>
-                                <input type=""checkbox"" name=""rememberMe"" value=""true"" /> Remember me
-                            </label>
-                        </div>
-                        <input type=""hidden"" name=""returnUrl"" value=""" + (returnUrl ?? "/") + @""" />
-                        <button type=""submit"">Login</button>
-                    </form>
-                </div>
-            </body>
-            </html>";
+        // Always redirect to frontend for GET requests
+        var loginUrl = config.Value.FrontendUrls.LoginUrl;
 
-        return Results.Content(html, "text/html");
+        if (!string.IsNullOrEmpty(returnUrl))
+        {
+            loginUrl += $"?returnUrl={Uri.EscapeDataString(returnUrl)}";
+        }
+
+        return Results.Redirect(loginUrl);
     }
 
     private static async Task<IResult> HandlePost(
         HttpContext httpContext,
-        [FromForm] string username,
-        [FromForm] string password,
-        [FromForm] string? returnUrl,
-        [FromForm] bool rememberMe = false)
+        [FromBody] LoginRequest request,
+        [FromServices] IOptions<IdentityProviderConfiguration> config)
     {
-        // Validate credentials (in real app, check against database)
-        if (!_users.TryGetValue(username, out var storedPassword) || password != storedPassword)
+        try
         {
-            return Results.BadRequest(new LoginResponse(
-                Success: false,
-                RedirectUrl: null,
-                ErrorMessage: "Invalid username or password"
+            // Validate input
+            var validationResult = ValidateLoginRequest(request);
+            if (!validationResult.IsValid)
+            {
+                return Results.BadRequest(new LoginResponse(
+                    Success: false,
+                    Message: validationResult.ErrorMessage
+                ));
+            }
+
+            // Authenticate user
+            var authResult = AuthenticateUser(request.Email, request.Password);
+            if (!authResult.IsAuthenticated)
+            {
+                return Results.Unauthorized(); // Let the client handle the 401
+            }
+
+            // Create and sign in user
+            await SignInUserAsync(httpContext, authResult.User!, request.RememberMe);
+
+            // Determine redirect URL for successful login
+            var redirectUrl = !string.IsNullOrEmpty(request.ReturnUrl)
+                ? request.ReturnUrl
+                : config.Value.FrontendUrls.DashboardUrl;
+
+            return Results.Ok(new LoginResponse(
+                Success: true,
+                Message: "Login successful",
+                RedirectUrl: redirectUrl
             ));
         }
+        catch (Exception)
+        {
+            // Log the exception (in real app)
+            // _logger.LogError(ex, "Login failed for user {Email}", request.Email);
 
-        // Create claims for the user
+            return Results.Problem(
+                title: "Login Error",
+                detail: "An error occurred during login. Please try again.",
+                statusCode: 500
+            );
+        }
+    }
+
+    private static (bool IsValid, string? ErrorMessage) ValidateLoginRequest(LoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return (false, "Email is required");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            return (false, "Password is required");
+
+        if (!IsValidEmail(request.Email))
+            return (false, "Invalid email format");
+
+        if (request.Password.Length < 3)
+            return (false, "Password must be at least 3 characters long");
+
+        return (true, null);
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static (bool IsAuthenticated, UserInfo? User) AuthenticateUser(string email, string password)
+    {
+        if (_users.TryGetValue(email, out var storedPassword) && password == storedPassword)
+        {
+            return (true, new UserInfo(email, email));
+        }
+
+        return (false, null);
+    }
+
+    private static async Task SignInUserAsync(HttpContext httpContext, UserInfo user, bool rememberMe)
+    {
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.Name, username),
-            new Claim(ClaimTypes.NameIdentifier, username),
-            // Add other claims as needed (email, roles, etc.)
-            new Claim("sub", username),
-            new Claim("name", username)
+            new Claim(ClaimTypes.Name, user.Name),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.NameIdentifier, user.Email),
+            new Claim("sub", user.Email)
         };
 
         var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -117,14 +163,11 @@ public class LoginEndpoint : IEndpoint
             IssuedUtc = DateTimeOffset.UtcNow
         };
 
-        // Sign in the user
         await httpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             claimsPrincipal,
             authProperties);
-
-        // Redirect to returnUrl or default page
-        var redirectUrl = !string.IsNullOrEmpty(returnUrl) ? returnUrl : "/";
-        return Results.Redirect(redirectUrl);
     }
+
+    private record UserInfo(string Email, string Name);
 }

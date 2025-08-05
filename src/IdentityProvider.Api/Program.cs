@@ -13,6 +13,8 @@ builder.Services.AddIdentityProviderConfiguration(builder.Configuration);
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
+        var identityConfig = builder.Configuration.GetSection("IdentityProvider").Get<IdentityProvider.Configuration.IdentityProviderConfiguration>();
+
         options.Cookie.Name = "IdentityProvider.Auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
@@ -22,9 +24,50 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LoginPath = "/account/login";
         options.LogoutPath = "/account/logout";
         options.AccessDeniedPath = "/account/access-denied";
+
+        // Configure external redirects for frontend
+        options.Events.OnRedirectToLogin = context =>
+        {
+            if (identityConfig?.FrontendUrls?.LoginUrl != null)
+            {
+                var returnUrl = context.Request.Path + context.Request.QueryString;
+                var loginUrl = $"{identityConfig.FrontendUrls.LoginUrl}?returnUrl={Uri.EscapeDataString(returnUrl)}";
+                context.Response.Redirect(loginUrl);
+                return Task.CompletedTask;
+            }
+
+            // Fallback to default behavior
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
+
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            if (identityConfig?.FrontendUrls?.AccessDeniedUrl != null)
+            {
+                context.Response.Redirect(identityConfig.FrontendUrls.AccessDeniedUrl);
+                return Task.CompletedTask;
+            }
+
+            // Fallback to default behavior
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
     });
 
 builder.Services.AddAuthorization();
+
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "https://localhost:5173") // Vite dev server
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddApiVersioning(options =>
@@ -59,6 +102,7 @@ builder.Services.AddEndpoints(typeof(Program).Assembly);
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();
 
