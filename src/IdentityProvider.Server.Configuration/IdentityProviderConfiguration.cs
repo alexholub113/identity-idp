@@ -1,6 +1,6 @@
-using IdentityProvider.Configuration.Models;
+using IdentityProvider.Server.Configuration.Models;
 
-namespace IdentityProvider.Configuration;
+namespace IdentityProvider.Server.Configuration;
 
 public class IdentityProviderConfiguration
 {

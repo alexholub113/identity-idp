@@ -1,6 +1,6 @@
 using System;
 
-namespace IdentityProvider.Api.Models;
+namespace IdentityProvider.Server.Api.Models;
 
 public class RefreshToken
 {

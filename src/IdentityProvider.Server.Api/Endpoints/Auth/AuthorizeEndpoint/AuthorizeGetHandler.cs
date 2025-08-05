@@ -1,10 +1,10 @@
-﻿using IdentityProvider.Api.Models;
-using IdentityProvider.Configuration.Models;
+﻿using IdentityProvider.Server.Api.Models;
+using IdentityProvider.Server.Configuration.Models;
 using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
 using System.Security.Cryptography;
 
-namespace IdentityProvider.Api.Endpoints.Auth.AuthorizeEndpoint;
+namespace IdentityProvider.Server.Api.Endpoints.Auth.AuthorizeEndpoint;
 
 internal class AuthorizeGetHandler : IEndpoint
 {

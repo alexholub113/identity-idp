@@ -1,4 +1,4 @@
-namespace IdentityProvider.Api.Endpoints.Auth.AuthorizeEndpoint;
+namespace IdentityProvider.Server.Api.Endpoints.Auth.AuthorizeEndpoint;
 
 /// <summary>
 /// Simple validation result for authorization requests

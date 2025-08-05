@@ -1,4 +1,3 @@
-using IdentityProvider.Configuration.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
@@ -6,10 +5,11 @@ using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using IdentityProvider.Api.Endpoints.Auth.AuthorizeEndpoint;
-using IdentityProvider.Api.Models;
+using IdentityProvider.Server.Api.Endpoints.Auth.AuthorizeEndpoint;
+using IdentityProvider.Server.Api.Models;
+using IdentityProvider.Server.Configuration.Models;
 
-namespace IdentityProvider.Api.Endpoints.Auth.TokenEndpoint;
+namespace IdentityProvider.Server.Api.Endpoints.Auth.TokenEndpoint;
 
 internal class TokenEndpoint : IEndpoint
 {

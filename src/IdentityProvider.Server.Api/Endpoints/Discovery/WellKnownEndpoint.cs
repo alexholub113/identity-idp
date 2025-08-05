@@ -1,7 +1,7 @@
 using System;
 using MinimalEndpoints.Abstractions;
 
-namespace IdentityProvider.Api.Endpoints.Discovery;
+namespace IdentityProvider.Server.Api.Endpoints.Discovery;
 
 public class WellKnownEndpoint : IEndpoint
 {

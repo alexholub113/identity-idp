@@ -1,6 +1,6 @@
 ﻿using MinimalEndpoints.Abstractions;
 
-namespace IdentityProvider.Api.Endpoints;
+namespace IdentityProvider.Server.Api.Endpoints;
 
 internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {

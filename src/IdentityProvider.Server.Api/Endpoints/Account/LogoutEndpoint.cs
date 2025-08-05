@@ -1,11 +1,11 @@
+using IdentityProvider.Server.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
-using IdentityProvider.Configuration;
 
-namespace IdentityProvider.Api.Endpoints.Account;
+namespace IdentityProvider.Server.Api.Endpoints.Account;
 
 public class LogoutEndpoint : IEndpoint
 {

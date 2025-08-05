@@ -1,8 +1,9 @@
 using Asp.Versioning;
 using Asp.Versioning.Builder;
+using IdentityProvider.Server.Configuration;
+using IdentityProvider.Server.Configuration.Extensions;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using MinimalEndpoints.Extensions;
-using IdentityProvider.Configuration.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +14,7 @@ builder.Services.AddIdentityProviderConfiguration(builder.Configuration);
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        var identityConfig = builder.Configuration.GetSection("IdentityProvider").Get<IdentityProvider.Configuration.IdentityProviderConfiguration>();
+        var identityConfig = builder.Configuration.GetSection("IdentityProvider").Get<IdentityProviderConfiguration>();
 
         options.Cookie.Name = "IdentityProvider.Auth";
         options.Cookie.HttpOnly = true;

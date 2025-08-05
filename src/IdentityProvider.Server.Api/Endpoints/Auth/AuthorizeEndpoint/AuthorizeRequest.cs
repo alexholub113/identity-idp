@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 
-namespace IdentityProvider.Api.Endpoints.Auth.AuthorizeEndpoint;
+namespace IdentityProvider.Server.Api.Endpoints.Auth.AuthorizeEndpoint;
 
 /// <summary>
 /// Simplified authorization request model for basic authorization code flow

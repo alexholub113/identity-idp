@@ -1,4 +1,4 @@
-namespace IdentityProvider.Api.Models;
+namespace IdentityProvider.Server.Api.Models;
 
 internal class AuthorizationCode
 {

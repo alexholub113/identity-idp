@@ -1,4 +1,4 @@
-﻿namespace IdentityProvider.Configuration.Models;
+﻿namespace IdentityProvider.Server.Configuration.Models;
 public class OAuthClient
 {
     public required string ClientId { get; init; }

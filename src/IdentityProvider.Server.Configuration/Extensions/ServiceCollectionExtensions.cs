@@ -1,8 +1,9 @@
-using IdentityProvider.Configuration.Models;
+using IdentityProvider.Server.Configuration;
+using IdentityProvider.Server.Configuration.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace IdentityProvider.Configuration.Extensions;
+namespace IdentityProvider.Server.Configuration.Extensions;
 
 public static class ServiceCollectionExtensions
 {
