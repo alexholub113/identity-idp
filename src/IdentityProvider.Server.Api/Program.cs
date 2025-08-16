@@ -18,8 +18,21 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
         options.Cookie.Name = "IdentityProvider.Auth";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+
+        // Configuration for development with HTTP frontend and API
+        if (builder.Environment.IsDevelopment())
+        {
+            // Use Lax for HTTP development - requires same-site navigation
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Allow HTTP
+        }
+        else
+        {
+            options.Cookie.SameSite = SameSiteMode.None; // Required for cross-origin in production
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Require HTTPS in production
+        }
+
+        options.Cookie.Domain = null; // Let browser handle domain
         options.ExpireTimeSpan = TimeSpan.FromHours(1);
         options.SlidingExpiration = true;
         options.LoginPath = "/account/login";
@@ -63,7 +76,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "https://localhost:5173") // Vite dev server
+        var identityConfig = builder.Configuration.GetSection("IdentityProvider").Get<IdentityProviderConfiguration>();
+        var allowedOrigins = identityConfig?.Cors?.AllowedOrigins ?? ["http://localhost:5173"];
+
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -124,6 +140,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!builder.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.Run();

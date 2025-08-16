@@ -6,10 +6,13 @@ export class ApiConfig {
      * Get the base API URL from environment or fallback logic
      */
     static getBaseUrl(): string {
-        return import.meta.env.API_BASE_URL ||
-            (window.location.hostname === 'localhost' && window.location.port !== '57480'
-                ? 'https://localhost:57480'
-                : window.location.origin);
+        const baseUrl = import.meta.env.VITE_API_BASE_URL;
+        console.log({baseUrl})
+        if (!baseUrl) {
+            throw new Error("VITE_API_BASE_URL is not defined");
+        }
+        
+        return baseUrl;
     }
 
     /**

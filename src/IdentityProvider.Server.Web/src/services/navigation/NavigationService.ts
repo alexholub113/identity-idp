@@ -1,3 +1,5 @@
+import ApiConfig from "../config/ApiConfig";
+
 /**
  * Service for handling application navigation and redirects
  */
@@ -19,8 +21,18 @@ export class NavigationService {
     static navigateAfterLogin(returnUrl?: string): void {
         if (typeof window !== 'undefined') {
             if (returnUrl && returnUrl !== '/') {
-                // Use the provided return URL
-                window.location.href = returnUrl;
+                // Check if returnUrl is an absolute URL (cross-origin)
+                if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+                    window.location.href = returnUrl;
+                } else if (returnUrl.startsWith('/api/')) {
+                    // For API endpoints, prepend the API base URL
+                    const apiBaseUrl = ApiConfig.getBaseUrl();
+                    const fullUrl = `${apiBaseUrl}${returnUrl}`;
+                    window.location.href = fullUrl;
+                } else {
+                    // For relative URLs within the same app
+                    window.location.href = returnUrl;
+                }
             } else {
                 // Default to dashboard
                 this.navigateToDashboard();

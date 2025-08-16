@@ -63,8 +63,8 @@ internal class AuthorizeGetHandler : IEndpoint
         // Check if user is authenticated
         if (!httpContext.User.Identity?.IsAuthenticated ?? true)
         {
-            // Build simple login URL
-            var returnUrl = $"/connect/authorize?client_id={Uri.EscapeDataString(request.ClientId)}&response_type=code";
+            // Build the complete authorize URL to return to after login
+            var returnUrl = $"/api/v1/connect/authorize?client_id={Uri.EscapeDataString(request.ClientId)}&response_type=code";
             if (!string.IsNullOrEmpty(request.RedirectUri))
                 returnUrl += $"&redirect_uri={Uri.EscapeDataString(request.RedirectUri)}";
             if (!string.IsNullOrEmpty(request.State))
@@ -72,7 +72,7 @@ internal class AuthorizeGetHandler : IEndpoint
             if (!string.IsNullOrEmpty(request.Scope))
                 returnUrl += $"&scope={Uri.EscapeDataString(request.Scope)}";
 
-            return Task.FromResult(Results.Redirect($"/account/login?returnUrl={Uri.EscapeDataString(returnUrl)}"));
+            return Task.FromResult(Results.Redirect($"/api/v1/account/login?returnUrl={Uri.EscapeDataString(returnUrl)}"));
         }
 
         // User is authenticated - generate authorization code

@@ -1,9 +1,7 @@
-import { AuthError, NetworkError, ValidationError } from '../errors/AuthError';
+import AuthError, { NetworkError } from "../errors/AuthError";
 
 // Configuration constants
 const REQUEST_TIMEOUT = 10000; // 10 seconds
-const MAX_RETRY_ATTEMPTS = 2;
-const RETRY_DELAY_BASE = 1000; // 1 second
 
 /**
  * HTTP client with retry logic and error handling
@@ -16,16 +14,12 @@ export class HttpClient {
      * @param options - Additional request options
      * @returns Promise with the response data
      */
-    static async postWithRetry<T>(
+    static async post<T>(
         url: string,
         body: unknown,
         options: RequestInit = {}
     ): Promise<T> {
-        let lastError: Error | null = null;
-
-        for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
-            try {
-                return await this.makeRequest<T>(url, {
+        return await this.makeRequest<T>(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -35,30 +29,6 @@ export class HttpClient {
                     body: JSON.stringify(body),
                     ...options,
                 });
-            } catch (error) {
-                lastError = error as Error;
-
-                // Don't retry on client errors (4xx) or validation errors
-                if (error instanceof AuthError && error.statusCode && error.statusCode < 500) {
-                    throw error;
-                }
-
-                if (error instanceof ValidationError) {
-                    throw error;
-                }
-
-                // Only retry on network errors or server errors (5xx)
-                if (attempt < MAX_RETRY_ATTEMPTS) {
-                    console.warn(`Request attempt ${attempt} failed, retrying...`, error);
-                    await this.delay(RETRY_DELAY_BASE * Math.pow(2, attempt - 1));
-                }
-            }
-        }
-
-        throw new NetworkError(
-            `Request failed after ${MAX_RETRY_ATTEMPTS} attempts`,
-            lastError || undefined
-        );
     }
 
     /**
@@ -170,14 +140,6 @@ export class HttpClient {
         }
 
         throw new AuthError(errorMessage, response.status, errorDetails);
-    }
-
-    /**
-     * Delay execution for specified milliseconds
-     * @param ms - Milliseconds to delay
-     */
-    private static delay(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

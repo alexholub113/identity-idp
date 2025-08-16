@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\IdentityProvider.Configuration\IdentityProvider.Server.Configuration.csproj" />
+    <ProjectReference Include="..\IdentityProvider.Server.Configuration\IdentityProvider.Server.Configuration.csproj" />
   </ItemGroup>
 
 </Project>

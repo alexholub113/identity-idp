@@ -37,7 +37,7 @@ export class AuthService {
             };
 
             // Make login request
-            const response = await HttpClient.postWithRetry<{
+            const response = await HttpClient.post<{
                 success: boolean;
                 message: string;
                 redirectUrl?: string;
