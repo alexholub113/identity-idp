@@ -6,18 +6,46 @@ using System.Security.Cryptography;
 
 namespace IdentityProvider.Server.Api.Endpoints.Auth.AuthorizeEndpoint;
 
-internal class AuthorizeGetHandler : IEndpoint
+internal class AuthorizeHandler : IEndpoint
 {
     // Simple in-memory store for authorization codes (replace with proper storage in production)
     private static readonly Dictionary<string, AuthorizationCode> _authorizationCodes = [];
 
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet("connect/authorize", Handle);
+        app.MapGet("connect/authorize", HandleGet);
+        app.MapPost("connect/authorize", HandlePost);
+    }
+
+    private static Task<IResult> HandleGet(
+        [AsParameters] AuthorizeRequest request,
+        IOptionsMonitor<OAuthClients> oauthClientsMonitor,
+        HttpContext httpContext)
+    {
+        return Handle(request, oauthClientsMonitor, httpContext);
+    }
+
+    private static async Task<IResult> HandlePost(
+        IOptionsMonitor<OAuthClients> oauthClientsMonitor,
+        HttpContext httpContext)
+    {
+        // For POST requests, read from form data
+        var form = await httpContext.Request.ReadFormAsync();
+
+        var request = new AuthorizeRequest
+        {
+            ClientId = form["client_id"].FirstOrDefault() ?? string.Empty,
+            ResponseType = form["response_type"].FirstOrDefault() ?? string.Empty,
+            RedirectUri = form["redirect_uri"].FirstOrDefault(),
+            Scope = form["scope"].FirstOrDefault(),
+            State = form["state"].FirstOrDefault()
+        };
+
+        return await Handle(request, oauthClientsMonitor, httpContext);
     }
 
     private static Task<IResult> Handle(
-        [AsParameters] AuthorizeRequest request,
+        AuthorizeRequest request,
         IOptionsMonitor<OAuthClients> oauthClientsMonitor,
         HttpContext httpContext)
     {

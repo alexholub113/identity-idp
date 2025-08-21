@@ -63,7 +63,7 @@ internal class TokenEndpoint : IEndpoint
         }
 
         // Exchange authorization code for tokens
-        if (!AuthorizeGetHandler.TryGetAndRemoveCode(request.Code, out var codeData))
+        if (!AuthorizeHandler.TryGetAndRemoveCode(request.Code, out var codeData))
         {
             return Task.FromResult(Results.BadRequest(new
             {
