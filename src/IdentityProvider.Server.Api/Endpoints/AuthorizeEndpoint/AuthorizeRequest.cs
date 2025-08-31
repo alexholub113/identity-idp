@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 
-namespace IdentityProvider.Server.Api.Endpoints.Auth.AuthorizeEndpoint;
+namespace IdentityProvider.Server.Api.Endpoints.AuthorizeEndpoint;
 
 /// <summary>
 /// Simplified authorization request model for basic authorization code flow
@@ -44,4 +44,11 @@ internal class AuthorizeRequest
     /// </summary>
     [FromQuery(Name = "state")]
     public string? State { get; set; }
+
+    /// <summary>
+    /// String value used to associate a Client session with an ID Token, and to mitigate replay attacks.
+    /// OPTIONAL for OpenID Connect, but RECOMMENDED when using implicit flow.
+    /// </summary>
+    [FromQuery(Name = "nonce")]
+    public string? Nonce { get; set; }
 }

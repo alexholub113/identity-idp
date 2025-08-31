@@ -1,8 +1,8 @@
-using Asp.Versioning;
-using Asp.Versioning.Builder;
+using IdentityProvider.Server.Api.Services;
 using IdentityProvider.Server.Configuration;
 using IdentityProvider.Server.Configuration.Extensions;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.IdentityModel.Tokens;
 using MinimalEndpoints.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,12 +10,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Identity Provider settings
 builder.Services.AddIdentityProviderConfiguration(builder.Configuration);
 
-// Add cookie-based authentication
+// Add authentication with both Cookie and JWT Bearer schemes
+var identityConfig = builder.Configuration.GetSection(IdentityProviderConfiguration.SectionName).Get<IdentityProviderConfiguration>();
+var jwtConfig = identityConfig?.Jwt ?? throw new InvalidOperationException("JWT configuration is required");
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        var identityConfig = builder.Configuration.GetSection("IdentityProvider").Get<IdentityProviderConfiguration>();
-
         options.Cookie.Name = "IdentityProvider.Auth";
         options.Cookie.HttpOnly = true;
 
@@ -35,9 +36,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Domain = null; // Let browser handle domain
         options.ExpireTimeSpan = TimeSpan.FromHours(1);
         options.SlidingExpiration = true;
-        options.LoginPath = "/account/login";
-        options.LogoutPath = "/account/logout";
-        options.AccessDeniedPath = "/account/access-denied";
+        options.LoginPath = "/login";
+        options.LogoutPath = "/logout";
+        options.AccessDeniedPath = "/access-denied";
 
         // Configure external redirects for frontend
         options.Events.OnRedirectToLogin = context =>
@@ -54,18 +55,19 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             context.Response.Redirect(context.RedirectUri);
             return Task.CompletedTask;
         };
-
-        options.Events.OnRedirectToAccessDenied = context =>
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            if (identityConfig?.FrontendUrls?.AccessDeniedUrl != null)
-            {
-                context.Response.Redirect(identityConfig.FrontendUrls.AccessDeniedUrl);
-                return Task.CompletedTask;
-            }
-
-            // Fallback to default behavior
-            context.Response.Redirect(context.RedirectUri);
-            return Task.CompletedTask;
+            ValidateIssuer = true,
+            ValidIssuer = jwtConfig.Issuer,
+            ValidateAudience = true,
+            ValidAudiences = [.. identityConfig.OAuthClients.Values.Select(x => x.ClientId)], // Accept any configured client ID as valid audience
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = jwtConfig.RsaPublicKey, // Use RSA public key instead of symmetric key
+            ClockSkew = TimeSpan.FromMinutes(5)
         };
     });
 
@@ -76,7 +78,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        var identityConfig = builder.Configuration.GetSection("IdentityProvider").Get<IdentityProviderConfiguration>();
+        var identityConfig = builder.Configuration.GetSection(IdentityProviderConfiguration.SectionName).Get<IdentityProviderConfiguration>();
         var allowedOrigins = identityConfig?.Cors?.AllowedOrigins ?? ["http://localhost:5173"];
 
         policy.WithOrigins(allowedOrigins)
@@ -87,21 +89,6 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ApiVersionReader = ApiVersionReader.Combine(
-        new UrlSegmentApiVersionReader(),
-        new QueryStringApiVersionReader(),
-        new HeaderApiVersionReader("X-Version"),
-        new MediaTypeApiVersionReader("ver")
-    );
-}).AddApiExplorer(options =>
-{
-    options.GroupNameFormat = "'v'VVV";
-    options.SubstituteApiVersionInUrl = true;
-});
 
 builder.Services.AddSwaggerGen(options =>
 {
@@ -114,6 +101,15 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddEndpoints(typeof(Program).Assembly);
 
+// Add authorization code repository
+builder.Services.AddSingleton<IAuthorizationCodeRepository, InMemoryAuthorizationCodeRepository>();
+
+// Add user repository
+builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+
+// Add cleanup background service
+builder.Services.AddHostedService<AuthorizationCodeCleanupService>();
+
 // Add services to the container.
 
 var app = builder.Build();
@@ -123,16 +119,7 @@ app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();
 
-ApiVersionSet apiVersionSet = app.NewApiVersionSet()
-    .HasApiVersion(new ApiVersion(1))
-    .ReportApiVersions()
-    .Build();
-
-RouteGroupBuilder versionedGroup = app
-    .MapGroup("api/v{version:apiVersion}")
-    .WithApiVersionSet(apiVersionSet);
-
-app.MapEndpoints(versionedGroup);
+app.MapEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

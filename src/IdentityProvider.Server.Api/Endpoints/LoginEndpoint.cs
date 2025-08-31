@@ -1,3 +1,4 @@
+using IdentityProvider.Server.Api.Services;
 using IdentityProvider.Server.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -6,7 +7,7 @@ using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
 using System.Security.Claims;
 
-namespace IdentityProvider.Server.Api.Endpoints.Account;
+namespace IdentityProvider.Server.Api.Endpoints;
 
 public record LoginRequest(
     string Email,
@@ -23,17 +24,11 @@ public record LoginResponse(
 
 public class LoginEndpoint : IEndpoint
 {
-    // Simple demo user store - in a real app, use proper identity storage
-    private static readonly Dictionary<string, string> _users = new(StringComparer.OrdinalIgnoreCase)
-    {
-        { "admin@test.com", "password123" },
-        { "user@test.com", "user@test.com" }
-    };
-
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet("account/login", HandleGet);
-        app.MapPost("account/login", HandlePost);
+        app.MapGet("login", HandleGet);
+        app.MapPost("login", HandlePost)
+           .DisableAntiforgery();
     }
 
     private static IResult HandleGet(
@@ -54,7 +49,8 @@ public class LoginEndpoint : IEndpoint
     private static async Task<IResult> HandlePost(
         HttpContext httpContext,
         [FromBody] LoginRequest request,
-        [FromServices] IOptions<IdentityProviderConfiguration> config)
+        [FromServices] IOptions<IdentityProviderConfiguration> config,
+        [FromServices] IUserRepository userRepository)
     {
         try
         {
@@ -69,7 +65,7 @@ public class LoginEndpoint : IEndpoint
             }
 
             // Authenticate user
-            var authResult = AuthenticateUser(request.Email, request.Password);
+            var authResult = await AuthenticateUserAsync(userRepository, request.Email, request.Password);
             if (!authResult.IsAuthenticated)
             {
                 return Results.Unauthorized(); // Let the client handle the 401
@@ -132,14 +128,41 @@ public class LoginEndpoint : IEndpoint
         }
     }
 
-    private static (bool IsAuthenticated, UserInfo? User) AuthenticateUser(string email, string password)
+    private static async Task<(bool IsAuthenticated, UserInfo? User)> AuthenticateUserAsync(
+        IUserRepository userRepository,
+        string email,
+        string password)
     {
-        if (_users.TryGetValue(email, out var storedPassword) && password == storedPassword)
+        // Try to authenticate using the user repository
+        var user = await userRepository.ValidateCredentialsAsync(email, password);
+
+        if (user != null && user.IsActive)
         {
-            return (true, new UserInfo(email, email));
+            // Create UserInfo from the authenticated user
+            var userInfo = new UserInfo(
+                user.Id,
+                user.Email,
+                GetDisplayName(user),
+                user.Username);
+
+            return (true, userInfo);
         }
 
         return (false, null);
+    }
+
+    private static string GetDisplayName(Models.User user)
+    {
+        if (!string.IsNullOrEmpty(user.FirstName) && !string.IsNullOrEmpty(user.LastName))
+            return $"{user.FirstName} {user.LastName}";
+
+        if (!string.IsNullOrEmpty(user.FirstName))
+            return user.FirstName;
+
+        if (!string.IsNullOrEmpty(user.Username))
+            return user.Username;
+
+        return user.Email;
     }
 
     private static async Task SignInUserAsync(HttpContext httpContext, UserInfo user, bool rememberMe)
@@ -148,8 +171,9 @@ public class LoginEndpoint : IEndpoint
         {
             new Claim(ClaimTypes.Name, user.Name),
             new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.NameIdentifier, user.Email),
-            new Claim("sub", user.Email)
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim("sub", user.Id),
+            new Claim("preferred_username", user.Username)
         };
 
         var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -169,5 +193,5 @@ public class LoginEndpoint : IEndpoint
             authProperties);
     }
 
-    private record UserInfo(string Email, string Name);
+    private record UserInfo(string Id, string Email, string Name, string Username);
 }

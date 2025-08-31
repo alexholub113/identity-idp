@@ -19,11 +19,20 @@ public static class ServiceCollectionExtensions
     {
         // Configure the full IdentityProviderConfiguration
         services.Configure<IdentityProviderConfiguration>(
-            configuration.GetSection("IdentityProvider"));
+            configuration.GetSection(IdentityProviderConfiguration.SectionName));
 
         // Configure OAuthClients directly for easier injection
         services.Configure<OAuthClients>(
-            configuration.GetSection("IdentityProvider:OAuthClients"));
+            configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:OAuthClients"));
+
+        services.Configure<FrontendUrls>(
+            configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:FrontendUrls"));
+
+        services.Configure<CorsConfiguration>(
+            configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:Cors"));
+
+        services.Configure<JwtConfiguration>(
+            configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:Jwt"));
 
         return services;
     }

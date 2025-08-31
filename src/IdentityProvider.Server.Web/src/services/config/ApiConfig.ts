@@ -19,7 +19,7 @@ export class ApiConfig {
      * Get the full login endpoint URL
      */
     static getLoginUrl(): string {
-        return `${this.getBaseUrl()}/api/v1/account/login`;
+        return `${this.getBaseUrl()}/login`;
     }
 
     /**

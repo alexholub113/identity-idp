@@ -24,7 +24,7 @@ export class NavigationService {
                 // Check if returnUrl is an absolute URL (cross-origin)
                 if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
                     window.location.href = returnUrl;
-                } else if (returnUrl.startsWith('/api/')) {
+                } else if (returnUrl.startsWith('/')) {
                     // For API endpoints, prepend the API base URL
                     const apiBaseUrl = ApiConfig.getBaseUrl();
                     const fullUrl = `${apiBaseUrl}${returnUrl}`;
