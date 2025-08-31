@@ -181,7 +181,8 @@ internal class TokenEndpoint : IEndpoint
 
         var claims = new List<Claim>
         {
-            new("sub", code.UserId),
+            new("sub", code.UserId), // OIDC standard claim
+            new(ClaimTypes.NameIdentifier, code.UserId), // .NET Framework claim
             new("aud", code.ClientId),
             new("iss", jwtConfig.Issuer),
             new("iat", issuedAt.ToString(), ClaimValueTypes.Integer64),
@@ -202,26 +203,38 @@ internal class TokenEndpoint : IEndpoint
             // Standard OpenID Connect profile scope claims
             if (scopes.Contains("profile") && user != null)
             {
+                var displayName = string.Empty;
                 if (!string.IsNullOrEmpty(user.FirstName) && !string.IsNullOrEmpty(user.LastName))
                 {
-                    claims.Add(new Claim("name", $"{user.FirstName} {user.LastName}"));
+                    displayName = $"{user.FirstName} {user.LastName}";
+                    claims.Add(new Claim("name", displayName)); // OIDC standard claim
+                    claims.Add(new Claim(ClaimTypes.Name, displayName)); // .NET Framework claim
                 }
                 else if (!string.IsNullOrEmpty(user.FirstName))
                 {
-                    claims.Add(new Claim("name", user.FirstName));
+                    displayName = user.FirstName;
+                    claims.Add(new Claim("name", displayName));
+                    claims.Add(new Claim(ClaimTypes.Name, displayName));
                 }
                 else if (!string.IsNullOrEmpty(user.Username))
                 {
-                    claims.Add(new Claim("name", user.Username));
+                    displayName = user.Username;
+                    claims.Add(new Claim(ClaimTypes.Name, displayName));
                 }
 
                 claims.Add(new Claim("preferred_username", user.Username));
 
                 if (!string.IsNullOrEmpty(user.FirstName))
+                {
                     claims.Add(new Claim("given_name", user.FirstName));
+                    claims.Add(new Claim(ClaimTypes.GivenName, user.FirstName));
+                }
 
                 if (!string.IsNullOrEmpty(user.LastName))
+                {
                     claims.Add(new Claim("family_name", user.LastName));
+                    claims.Add(new Claim(ClaimTypes.Surname, user.LastName));
+                }
 
                 if (!string.IsNullOrEmpty(user.ProfilePictureUrl))
                     claims.Add(new Claim("picture", user.ProfilePictureUrl));
@@ -230,7 +243,8 @@ internal class TokenEndpoint : IEndpoint
             // Standard OpenID Connect email scope claims
             if (scopes.Contains("email") && user != null)
             {
-                claims.Add(new Claim("email", user.Email));
+                claims.Add(new Claim("email", user.Email)); // OIDC standard claim
+                claims.Add(new Claim(ClaimTypes.Email, user.Email)); // .NET Framework claim
                 claims.Add(new Claim("email_verified", user.EmailVerified.ToString().ToLower()));
             }
 
