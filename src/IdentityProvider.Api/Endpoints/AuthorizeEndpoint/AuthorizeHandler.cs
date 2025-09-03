@@ -1,6 +1,6 @@
-﻿using IdentityProvider.Api.Models;
+﻿using IdentityProvider.Api.Configurations;
+using IdentityProvider.Api.Models;
 using IdentityProvider.Api.Services;
-using IdentityProvider.Configuration.Models;
 using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
 using System.Security.Claims;
@@ -19,7 +19,7 @@ internal class AuthorizeHandler : IEndpoint
 
     private static Task<IResult> HandleGet(
         [AsParameters] AuthorizeRequest request,
-        IOptionsMonitor<OAuthClients> oauthClientsMonitor,
+        IOptionsMonitor<OAuthClientsConfiguration> oauthClientsMonitor,
         IAuthorizationCodeRepository repository,
         HttpContext httpContext)
     {
@@ -27,7 +27,7 @@ internal class AuthorizeHandler : IEndpoint
     }
 
     private static async Task<IResult> HandlePost(
-        IOptionsMonitor<OAuthClients> oauthClientsMonitor,
+        IOptionsMonitor<OAuthClientsConfiguration> oauthClientsMonitor,
         IAuthorizationCodeRepository repository,
         HttpContext httpContext)
     {
@@ -49,7 +49,7 @@ internal class AuthorizeHandler : IEndpoint
 
     private static async Task<IResult> Handle(
         AuthorizeRequest request,
-        IOptionsMonitor<OAuthClients> oauthClientsMonitor,
+        IOptionsMonitor<OAuthClientsConfiguration> oauthClientsMonitor,
         IAuthorizationCodeRepository repository,
         HttpContext httpContext)
     {

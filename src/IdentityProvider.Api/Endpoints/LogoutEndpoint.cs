@@ -1,4 +1,4 @@
-using IdentityProvider.Configuration;
+using IdentityProvider.Api.Configurations;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;

@@ -1,4 +1,4 @@
-using IdentityProvider.Configuration;
+using IdentityProvider.Api.Configurations;
 using Microsoft.Extensions.Options;
 using MinimalEndpoints.Abstractions;
 

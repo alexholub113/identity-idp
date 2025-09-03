@@ -1,7 +1,6 @@
+using IdentityProvider.Api.Configurations;
 using IdentityProvider.Api.Models;
 using IdentityProvider.Api.Services;
-using IdentityProvider.Configuration;
-using IdentityProvider.Configuration.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -9,7 +8,6 @@ using MinimalEndpoints.Abstractions;
 using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 
 namespace IdentityProvider.Api.Endpoints;
 
@@ -42,7 +40,7 @@ internal class TokenEndpoint : IEndpoint
 
     private static async Task<IResult> Handle(
         [FromForm] TokenRequest request,
-        IOptionsMonitor<OAuthClients> oauthClientsMonitor,
+        IOptionsMonitor<OAuthClientsConfiguration> oauthClientsMonitor,
         IOptionsMonitor<JwtConfiguration> jwtConfigMonitor,
         IAuthorizationCodeRepository repository,
         IUserRepository userRepository,

@@ -1,14 +1,27 @@
+using IdentityProvider.Api.Configurations;
 using IdentityProvider.Api.Services;
-using IdentityProvider.Configuration;
-using IdentityProvider.Configuration.Extensions;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.IdentityModel.Tokens;
 using MinimalEndpoints.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Identity Provider settings
-builder.Services.AddIdentityProviderConfiguration(builder.Configuration);
+// Configure the full IdentityProviderConfiguration
+builder.Services.Configure<IdentityProviderConfiguration>(
+    builder.Configuration.GetSection(IdentityProviderConfiguration.SectionName));
+
+// Configure individual sections for easier injection
+builder.Services.Configure<OAuthClientsConfiguration>(
+    builder.Configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:{OAuthClientsConfiguration.SectionName}"));
+
+builder.Services.Configure<FrontendUrlsConfiguration>(
+    builder.Configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:{FrontendUrlsConfiguration.SectionName}"));
+
+builder.Services.Configure<CorsConfiguration>(
+    builder.Configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:{CorsConfiguration.SectionName}"));
+
+builder.Services.Configure<JwtConfiguration>(
+    builder.Configuration.GetSection($"{IdentityProviderConfiguration.SectionName}:{JwtConfiguration.SectionName}"));
 
 // Add authentication with both Cookie and JWT Bearer schemes
 var identityConfig = builder.Configuration.GetSection(IdentityProviderConfiguration.SectionName).Get<IdentityProviderConfiguration>();

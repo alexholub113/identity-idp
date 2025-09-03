@@ -1,6 +1,6 @@
+using IdentityProvider.Api.Configurations;
 using IdentityProvider.Api.Models;
 using IdentityProvider.Api.Services;
-using IdentityProvider.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
