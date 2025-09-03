@@ -1,6 +1,6 @@
 # Custom Identity Provider (OpenID Connect + OAuth 2.0)
 
-A comprehensive Identity Provider implementation built from scratch to demonstrate understanding of OpenID Connect and OAuth 2.0 protocols. This project showcases modern web development practices with a .NET API backend and React frontend.
+A comprehensive Identity Provider implementation built from scratch to demonstrate understanding of OpenID Connect and OAuth 2.0 protocols. This project showcases modern web development practices with a Web API backend and React frontend.
 
 ![Login Page](LoginPage.png)
 
